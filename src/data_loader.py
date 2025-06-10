@@ -1,9 +1,9 @@
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from tensorflow.keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
-import os  
-
+from torch.utils.data import TensorDataset
+import torch
+import os
 # Define attack categories
 ATTACK_CATEGORIES_19 = { 
     'ARP_Spoofing': 'Spoofing',
@@ -71,22 +71,19 @@ ATTACK_CATEGORIES_2 = {
     'Benign': 'Benign'
 }
 
-def get_attack_category(file_name, class_config): 
-    """Get attack category from file name."""
-
+def get_attack_category(file_name, class_config):
     if class_config == 2:
         categories = ATTACK_CATEGORIES_2
     elif class_config == 6:
         categories = ATTACK_CATEGORIES_6
-    else:  # Default to 19 classes 
-        categories = ATTACK_CATEGORIES_19  
+    else:
+        categories = ATTACK_CATEGORIES_19
 
     for key in categories:
         if key in file_name:
             return categories[key]
-        
+
 def load_and_preprocess_data(data_dir, class_config):
-    """Load, preprocess, and prepare data for training."""
     train_files = [f"{data_dir}/train/{f}" for f in os.listdir(f"{data_dir}/train") if f.endswith('.csv')]
     test_files = [f"{data_dir}/test/{f}" for f in os.listdir(f"{data_dir}/test") if f.endswith('.csv')]
 
@@ -105,11 +102,8 @@ def load_and_preprocess_data(data_dir, class_config):
     y_train_encoded = label_encoder.fit_transform(y_train)
     y_test_encoded = label_encoder.transform(y_test)
 
-    y_train_categorical = to_categorical(y_train_encoded)
-    y_test_categorical = to_categorical(y_test_encoded)
-
-    X_train, X_val, y_train_categorical, y_val_categorical = train_test_split(
-        X_train, y_train_categorical, test_size=0.2, random_state=42
+    X_train, X_val, y_train_encoded, y_val_encoded = train_test_split(
+        X_train, y_train_encoded, test_size=0.2, random_state=42
     )
 
     scaler = StandardScaler()
@@ -117,8 +111,13 @@ def load_and_preprocess_data(data_dir, class_config):
     X_val = scaler.transform(X_val)
     X_test = scaler.transform(X_test)
 
-    X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
-    X_val = X_val.reshape(X_val.shape[0], X_val.shape[1], 1)
-    X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
+    # Reshape and convert to PyTorch tensors
+    X_train = torch.tensor(X_train, dtype=torch.float32).unsqueeze(-1)
+    X_val = torch.tensor(X_val, dtype=torch.float32).unsqueeze(-1)
+    X_test = torch.tensor(X_test, dtype=torch.float32).unsqueeze(-1)
 
-    return X_train, X_val, X_test, y_train_categorical, y_val_categorical, y_test_categorical, label_encoder
+    y_train_tensor = torch.tensor(y_train_encoded, dtype=torch.long)
+    y_val_tensor = torch.tensor(y_val_encoded, dtype=torch.long)
+    y_test_tensor = torch.tensor(y_test_encoded, dtype=torch.long)
+
+    return X_train, X_val, X_test, y_train_tensor, y_val_tensor, y_test_tensor, label_encoder
