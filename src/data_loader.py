@@ -1,10 +1,11 @@
 import pandas as pd
+import os
+import torch
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
-from torch.utils.data import TensorDataset
-import torch
-import os
-# Define attack categories
+
+# ---------------------- Attack Category Mappings ---------------------- #
+
 ATTACK_CATEGORIES_19 = { 
     'ARP_Spoofing': 'Spoofing',
     'MQTT-DDoS-Connect_Flood': 'MQTT-DDoS-Connect_Flood',
@@ -27,7 +28,7 @@ ATTACK_CATEGORIES_19 = {
     'Benign': 'Benign'
 }
 
-ATTACK_CATEGORIES_6 = {  
+ATTACK_CATEGORIES_6 = {
     'Spoofing': 'Spoofing',
     'MQTT-DDoS-Connect_Flood': 'MQTT',
     'MQTT-DDoS-Publish_Flood': 'MQTT',
@@ -49,7 +50,7 @@ ATTACK_CATEGORIES_6 = {
     'Benign': 'Benign'
 }
 
-ATTACK_CATEGORIES_2 = {  
+ATTACK_CATEGORIES_2 = {
     'ARP_Spoofing': 'attack',
     'MQTT-DDoS-Connect_Flood': 'attack',
     'MQTT-DDoS-Publish_Flood': 'attack',
@@ -71,6 +72,8 @@ ATTACK_CATEGORIES_2 = {
     'Benign': 'Benign'
 }
 
+# ---------------------- Helper Function ---------------------- #
+
 def get_attack_category(file_name, class_config):
     if class_config == 2:
         categories = ATTACK_CATEGORIES_2
@@ -82,42 +85,43 @@ def get_attack_category(file_name, class_config):
     for key in categories:
         if key in file_name:
             return categories[key]
+    return 'Unknown'
 
-def load_and_preprocess_data(data_dir, class_config):
-    train_files = [f"{data_dir}/train/{f}" for f in os.listdir(f"{data_dir}/train") if f.endswith('.csv')]
-    test_files = [f"{data_dir}/test/{f}" for f in os.listdir(f"{data_dir}/test") if f.endswith('.csv')]
+def load_and_preprocess_data(class_config):
+    train_files = [os.path.join("data", "train", f) for f in os.listdir(os.path.join("data", "train")) if f.endswith(".csv")]
+    test_files = [os.path.join("data", "test", f) for f in os.listdir(os.path.join("data", "test")) if f.endswith(".csv")]
 
     train_df = pd.concat([pd.read_csv(f).assign(file=f) for f in train_files], ignore_index=True)
     test_df = pd.concat([pd.read_csv(f).assign(file=f) for f in test_files], ignore_index=True)
 
-    train_df['Attack_Type'] = train_df['file'].apply(lambda x: get_attack_category(x, class_config))
-    test_df['Attack_Type'] = test_df['file'].apply(lambda x: get_attack_category(x, class_config))
+    test_sample = test_df.sample(frac=0.2, random_state=42)
+    train_sample = train_df.sample(frac=0.8, random_state=42)
+    valtest_df = pd.concat([test_sample, train_sample], ignore_index=True)
 
-    X_train = train_df.drop(['Attack_Type', 'file'], axis=1)
-    y_train = train_df['Attack_Type']
-    X_test = test_df.drop(['Attack_Type', 'file'], axis=1)
-    y_test = test_df['Attack_Type']
+    train_df["Attack_Type"] = train_df["file"].apply(lambda x: get_attack_category(x, class_config))
+    valtest_df["Attack_Type"] = valtest_df["file"].apply(lambda x: get_attack_category(x, class_config))
+
+    X_train = train_df.drop(columns=["Attack_Type", "file"])
+    y_train = train_df["Attack_Type"]
+    X_valtest = valtest_df.drop(columns=["Attack_Type", "file"])
+    y_valtest = valtest_df["Attack_Type"]
 
     label_encoder = LabelEncoder()
     y_train_encoded = label_encoder.fit_transform(y_train)
-    y_test_encoded = label_encoder.transform(y_test)
-
-    X_train, X_val, y_train_encoded, y_val_encoded = train_test_split(
-        X_train, y_train_encoded, test_size=0.2, random_state=42
-    )
+    y_valtest_encoded = label_encoder.transform(y_valtest)
 
     scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_val = scaler.transform(X_val)
-    X_test = scaler.transform(X_test)
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_valtest_scaled = scaler.transform(X_valtest)
 
-    # Reshape and convert to PyTorch tensors
-    X_train = torch.tensor(X_train, dtype=torch.float32).unsqueeze(-1)
-    X_val = torch.tensor(X_val, dtype=torch.float32).unsqueeze(-1)
-    X_test = torch.tensor(X_test, dtype=torch.float32).unsqueeze(-1)
+    X_val, X_test, y_val, y_test = train_test_split(X_valtest_scaled, y_valtest_encoded, test_size=0.5, stratify=y_valtest_encoded, random_state=42)
 
-    y_train_tensor = torch.tensor(y_train_encoded, dtype=torch.long)
-    y_val_tensor = torch.tensor(y_val_encoded, dtype=torch.long)
-    y_test_tensor = torch.tensor(y_test_encoded, dtype=torch.long)
-
-    return X_train, X_val, X_test, y_train_tensor, y_val_tensor, y_test_tensor, label_encoder
+    return (
+        torch.tensor(X_train_scaled, dtype=torch.float32),
+        torch.tensor(X_val, dtype=torch.float32),
+        torch.tensor(X_test, dtype=torch.float32),
+        torch.tensor(y_train_encoded, dtype=torch.long),
+        torch.tensor(y_val, dtype=torch.long),
+        torch.tensor(y_test, dtype=torch.long),
+        label_encoder
+    )

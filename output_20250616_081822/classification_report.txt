@@ -1,0 +1,25 @@
+                         precision    recall  f1-score   support
+
+                 Benign       0.93      0.98      0.95     80834
+              DDoS-ICMP       1.00      1.00      1.00    649699
+               DDoS-SYN       1.00      1.00      1.00    338140
+               DDoS-TCP       1.00      1.00      1.00    340359
+               DDoS-UDP       1.00      1.00      1.00    690743
+               DoS-ICMP       1.00      1.00      1.00    176458
+                DoS-SYN       1.00      1.00      1.00    186476
+                DoS-TCP       1.00      1.00      1.00    160313
+                DoS-UDP       1.00      1.00      1.00    240312
+MQTT-DDoS-Connect_Flood       1.00      1.00      1.00     73354
+MQTT-DDoS-Publish_Flood       1.00      0.93      0.96     11884
+ MQTT-DoS-Connect_Flood       0.99      0.98      0.99      5381
+ MQTT-DoS-Publish_Flood       0.96      1.00      0.98     18612
+    MQTT-Malformed_Data       0.80      0.43      0.56      2245
+          Recon-OS_Scan       0.74      0.08      0.15      7096
+       Recon-Ping_Sweep       0.61      0.60      0.61       318
+        Recon-Port_Scan       0.84      0.95      0.89     35926
+          Recon-VulScan       0.65      0.17      0.27       971
+               Spoofing       0.66      0.49      0.56      6630
+
+               accuracy                           0.99   3025751
+              macro avg       0.90      0.82      0.84   3025751
+           weighted avg       0.99      0.99      0.99   3025751
