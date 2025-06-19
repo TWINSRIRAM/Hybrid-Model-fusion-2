@@ -22,7 +22,7 @@ def train_model(model, train_loader, val_loader, epochs, device, output_dir):
 
     model.to(device)
     best_val_loss = float('inf')
-    patience, wait = 5, 0
+    patience, wait = 3, 0
 
     for epoch in range(epochs):
         model.train()
